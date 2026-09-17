@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { INDICATOR_META, type IndicatorId } from './lib/indicatorMeta';
 import { percentileRank, percentileLabel } from './lib/percentile';
+import { calculateCompositeLean, compositeLeanLabel } from './lib/compositeLean';
 
 interface IndicatorSnapshot {
   id: IndicatorId;
@@ -49,6 +50,22 @@ export const App: React.FC = () => {
     })();
   }, []);
 
+  // Computed once per render from the fetched snapshot — each card and
+  // the composite gauge below both read from this same list, so they
+  // can never disagree with each other.
+  const readings = (data?.indicators ?? [])
+    .map(indicator => {
+      const meta = INDICATOR_META[indicator.id];
+      if (!meta || indicator.latestValue === null) return null;
+      const percentile = percentileRank(indicator.latestValue, indicator.historicalValues);
+      return { indicator, meta, percentile };
+    })
+    .filter((r): r is { indicator: IndicatorSnapshot; meta: (typeof INDICATOR_META)[IndicatorId]; percentile: number } => r !== null);
+
+  const compositeScore = readings.length
+    ? calculateCompositeLean(readings.map(r => ({ percentile: r.percentile, higherLeansGoldBullish: r.meta.higherLeansGoldBullish })))
+    : null;
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 py-4">
@@ -95,22 +112,45 @@ export const App: React.FC = () => {
                 ดึงข้อมูลบางส่วนไม่สำเร็จ: {data.errors.map(e => INDICATOR_META[e.id as IndicatorId]?.label ?? e.id).join(', ')}
               </div>
             )}
+
+            {compositeScore !== null && (
+              <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-sm font-bold">ภาพรวมตอนนี้ (จาก {readings.length} ตัวชี้วัด)</h2>
+                  <span className="text-xs font-bold text-amber-400">{compositeScore}/100</span>
+                </div>
+                <div className="relative h-2.5 rounded-full bg-gradient-to-r from-blue-700 via-slate-600 to-amber-500 mb-2">
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-white border-2 border-slate-950 shadow"
+                    style={{ left: `${compositeScore}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-500 mb-2">
+                  <span>เอียงลบ (กดดันทองคำ)</span>
+                  <span>เป็นกลาง</span>
+                  <span>เอียงบวก (หนุนทองคำ)</span>
+                </div>
+                <p className="text-sm font-semibold text-slate-200">{compositeLeanLabel(compositeScore)}</p>
+                <p className="text-[11px] text-slate-500 mt-1.5">
+                  คำนวณจากค่าเฉลี่ยถ่วงน้ำหนักเท่ากันของ percentile ทั้ง {readings.length} ตัวด้านล่าง ไม่ใช่แบบจำลองที่ผ่านการพิสูจน์ทางสถิติ
+                  และไม่ใช่การพยากรณ์ทิศทางราคา — เป็นแค่ภาพสรุปว่าปัจจัยจริงตอนนี้เอียงไปทางไหนเมื่อดูรวมกัน
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {data.indicators.map(indicator => {
-                const meta = INDICATOR_META[indicator.id];
-                if (!meta || indicator.latestValue === null) return null;
-                const pct = percentileRank(indicator.latestValue, indicator.historicalValues);
-                const bucket = percentileLabel(pct);
+              {readings.map(({ indicator, meta, percentile }) => {
+                const bucket = percentileLabel(percentile);
                 return (
                   <div key={indicator.id} className="bg-slate-900 border border-slate-800 rounded-lg p-4">
                     <div className="flex items-start justify-between gap-2">
                       <h2 className="text-sm font-bold">{meta.label}</h2>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${percentileBucketColor[bucket]}`}>
-                        {bucket} ({pct}th percentile)
+                        {bucket} ({percentile}th percentile)
                       </span>
                     </div>
                     <div className="text-2xl font-bold text-amber-400 tabular-nums mt-1">
-                      {formatValue(indicator.latestValue, meta.unit)}
+                      {formatValue(indicator.latestValue!, meta.unit)}
                     </div>
                     <p className="text-[11px] text-slate-500 mb-2">
                       ข้อมูลล่าสุด: {indicator.latestDate} · แหล่งที่มา: {meta.source}
