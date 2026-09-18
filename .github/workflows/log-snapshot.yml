@@ -1,0 +1,39 @@
+name: Log Daily Indicator Snapshot
+
+on:
+  schedule:
+    # 22:30 UTC ≈ after the US market close and the day's FRED/CFTC/LBMA
+    # updates have posted, so each day's record reflects that day's real
+    # closing data rather than a partial/stale read.
+    - cron: '30 22 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  log-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Refresh Geopolitical Risk Index snapshot (source updates monthly)
+        run: npm run refresh:gpr
+      - name: Log today's indicator snapshot
+        run: npm run log:snapshot
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      - name: Commit updated history (no-op if nothing changed)
+        run: |
+          git config user.name "dechaphoprre-hub"
+          git config user.email "268350279+dechaphoprre-hub@users.noreply.github.com"
+          git add public/history.json public/gpr-snapshot.json
+          git diff --cached --quiet && echo "No new snapshot to commit." || git commit -m "Log daily indicator snapshot"
+          git push

@@ -12,7 +12,9 @@ export type IndicatorId =
   | 'dollar-index-broad'
   | 'breakeven-inflation-10y'
   | 'gold-speculative-positioning'
-  | 'geopolitical-risk-index';
+  | 'geopolitical-risk-index'
+  | 'nominal-yield-10y'
+  | 'gold-price-usd';
 
 export interface IndicatorMeta {
   id: IndicatorId;
@@ -70,5 +72,23 @@ export const INDICATOR_META: Record<IndicatorId, IndicatorMeta> = {
     higherLeansGoldBullish: true,
     whatItIs: 'นับความถี่ของคำเกี่ยวกับความตึงเครียดทางภูมิรัฐศาสตร์ในหนังสือพิมพ์ชั้นนำของโลกทุกเดือน เป็นตัวเลขจากข่าวจริง ไม่ใช่ความรู้สึก',
     whyItMattersForGold: 'ทองคำถูกมองเป็นสินทรัพย์ปลอดภัยเวลาโลกตึงเครียด แต่ไม่เสมอไป — ตัวเลขนี้ควรดูคู่กับดอกเบี้ยแท้จริงและดอลลาร์เสมอ ไม่ใช่ดูตัวเดียวแล้วสรุปเลย'
+  },
+  'nominal-yield-10y': {
+    id: 'nominal-yield-10y',
+    label: 'ดอกเบี้ยพันธบัตร 10 ปี (Nominal 10Y Yield)',
+    unit: '%',
+    source: 'Federal Reserve (FRED)',
+    higherLeansGoldBullish: false,
+    whatItIs: 'ผลตอบแทนพันธบัตรรัฐบาลสหรัฐฯ อายุ 10 ปี แบบไม่หักเงินเฟ้อ — ตัวเลขที่สื่อรายงานข่าวกันบ่อยที่สุดเวลาพูดถึง "บอนด์ยิลด์"',
+    whyItMattersForGold: 'ต่างจากดอกเบี้ยแท้จริงตรงที่ไม่ได้หักเงินเฟ้อ แต่ยังสะท้อนทิศทางเดียวกันเป็นส่วนใหญ่ — ดอกเบี้ยพันธบัตรขึ้นแรงมักดันเงินไหลออกจากทองไปหาพันธบัตรแทน'
+  },
+  'gold-price-usd': {
+    id: 'gold-price-usd',
+    label: 'ราคาทองคำ (LBMA Gold PM Fix)',
+    unit: 'USD/oz',
+    source: 'London Bullion Market Association (LBMA)',
+    higherLeansGoldBullish: true,
+    whatItIs: 'ราคาทองคำมาตรฐานโลกที่ตลาดลอนดอนกำหนดทุกวันทำการ (ราคาต่อทรอยออนซ์ เป็นดอลลาร์สหรัฐฯ) เป็นแหล่งราคาอ้างอิงหลักที่ตลาดทองทั่วโลกใช้',
+    whyItMattersForGold: 'นี่คือตัวราคาเอง ไม่ใช่ปัจจัยขับเคลื่อน — ใช้เทียบโครงสร้างแนวโน้ม (Higher High/Higher Low หรือ Lower High/Lower Low) เพื่อดูว่าราคาเองกำลังอยู่ในขาขึ้นหรือขาลงตามพฤติกรรมจริง ไม่ใช่แค่ปัจจัยพื้นฐาน'
   }
 };

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { INDICATOR_META, type IndicatorId } from './lib/indicatorMeta';
 import { percentileRank, percentileLabel } from './lib/percentile';
 import { calculateCompositeLean, compositeLeanLabel } from './lib/compositeLean';
+import { recentDirection, classifyPriceStructure } from './lib/priceTrend';
+import { calculateSixSignalVote, CFTC_CROWDED_PERCENTILE } from './lib/sixSignalVote';
 
 interface IndicatorSnapshot {
   id: IndicatorId;
@@ -16,9 +18,23 @@ interface IndicatorsResponse {
   errors: Array<{ id: string; message: string }>;
 }
 
+// The original 5 "why gold moves" drivers — the composite lean gauge is
+// scoped to just these. nominal-yield-10y and gold-price-usd (added for
+// the 6-signal vote) are deliberately excluded: gold-price-usd's own
+// percentile is circular (price being high vs. its own history isn't a
+// driver of price), and nominal yield would double-count real yield.
+const COMPOSITE_DRIVER_IDS: IndicatorId[] = [
+  'real-yield-10y',
+  'dollar-index-broad',
+  'breakeven-inflation-10y',
+  'gold-speculative-positioning',
+  'geopolitical-risk-index'
+];
+
 const formatValue = (value: number, unit: string): string => {
   if (unit === '%') return `${value.toFixed(2)}%`;
   if (unit === 'สัญญา') return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (unit === 'USD/oz') return value.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 };
 
@@ -28,6 +44,24 @@ const percentileBucketColor: Record<string, string> = {
   typical: 'bg-slate-800 text-slate-300 border-slate-700',
   high: 'bg-slate-800 text-slate-300 border-slate-700',
   'very high': 'bg-amber-950 text-amber-300 border-amber-800'
+};
+
+const verdictColor: Record<string, string> = {
+  bullish: 'text-emerald-400',
+  bearish: 'text-red-400',
+  neutral: 'text-slate-500'
+};
+
+const biasBadge: Record<string, string> = {
+  long: 'bg-emerald-950 text-emerald-300 border-emerald-800',
+  neutral: 'bg-amber-950 text-amber-300 border-amber-800',
+  short: 'bg-red-950 text-red-300 border-red-800'
+};
+
+const biasLabel: Record<string, string> = {
+  long: '🟢 Long bias',
+  neutral: '🟡 Neutral / รอ',
+  short: '🔴 Short bias / ลด Long'
 };
 
 export const App: React.FC = () => {
@@ -50,9 +84,11 @@ export const App: React.FC = () => {
     })();
   }, []);
 
-  // Computed once per render from the fetched snapshot — each card and
-  // the composite gauge below both read from this same list, so they
-  // can never disagree with each other.
+  const findIndicator = (id: IndicatorId) => data?.indicators.find(i => i.id === id) ?? null;
+
+  // Computed once per render from the fetched snapshot — cards, the
+  // composite gauge, and the 6-signal panel all read from this same
+  // source, so they can never disagree with each other.
   const readings = (data?.indicators ?? [])
     .map(indicator => {
       const meta = INDICATOR_META[indicator.id];
@@ -62,9 +98,32 @@ export const App: React.FC = () => {
     })
     .filter((r): r is { indicator: IndicatorSnapshot; meta: (typeof INDICATOR_META)[IndicatorId]; percentile: number } => r !== null);
 
-  const compositeScore = readings.length
-    ? calculateCompositeLean(readings.map(r => ({ percentile: r.percentile, higherLeansGoldBullish: r.meta.higherLeansGoldBullish })))
+  const compositeReadings = readings.filter(r => COMPOSITE_DRIVER_IDS.includes(r.indicator.id));
+  const compositeScore = compositeReadings.length
+    ? calculateCompositeLean(compositeReadings.map(r => ({ percentile: r.percentile, higherLeansGoldBullish: r.meta.higherLeansGoldBullish })))
     : null;
+
+  const sixSignal = (() => {
+    const realYield = findIndicator('real-yield-10y');
+    const dollar = findIndicator('dollar-index-broad');
+    const nominalYield = findIndicator('nominal-yield-10y');
+    const breakeven = findIndicator('breakeven-inflation-10y');
+    const cftc = findIndicator('gold-speculative-positioning');
+    const goldPrice = findIndicator('gold-price-usd');
+    if (!realYield || !dollar || !nominalYield || !breakeven || !cftc || !goldPrice) return null;
+    if ([realYield, dollar, nominalYield, breakeven, cftc, goldPrice].some(i => i.latestValue === null)) return null;
+
+    const cftcPercentile = percentileRank(cftc.latestValue!, cftc.historicalValues);
+
+    return calculateSixSignalVote({
+      realYieldDirection: recentDirection(realYield.historicalValues),
+      dollarDirection: recentDirection(dollar.historicalValues),
+      nominalYieldDirection: recentDirection(nominalYield.historicalValues),
+      breakevenDirection: recentDirection(breakeven.historicalValues),
+      cftcCrowded: cftcPercentile >= CFTC_CROWDED_PERCENTILE,
+      goldStructure: classifyPriceStructure(goldPrice.historicalValues)
+    });
+  })();
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
@@ -116,7 +175,7 @@ export const App: React.FC = () => {
             {compositeScore !== null && (
               <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 mb-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-sm font-bold">ภาพรวมตอนนี้ (จาก {readings.length} ตัวชี้วัด)</h2>
+                  <h2 className="text-sm font-bold">ภาพรวมตอนนี้ (จาก {compositeReadings.length} ตัวชี้วัด)</h2>
                   <span className="text-xs font-bold text-amber-400">{compositeScore}/100</span>
                 </div>
                 <div className="relative h-2.5 rounded-full bg-gradient-to-r from-blue-700 via-slate-600 to-amber-500 mb-2">
@@ -132,8 +191,37 @@ export const App: React.FC = () => {
                 </div>
                 <p className="text-sm font-semibold text-slate-200">{compositeLeanLabel(compositeScore)}</p>
                 <p className="text-[11px] text-slate-500 mt-1.5">
-                  คำนวณจากค่าเฉลี่ยถ่วงน้ำหนักเท่ากันของ percentile ทั้ง {readings.length} ตัวด้านล่าง ไม่ใช่แบบจำลองที่ผ่านการพิสูจน์ทางสถิติ
-                  และไม่ใช่การพยากรณ์ทิศทางราคา — เป็นแค่ภาพสรุปว่าปัจจัยจริงตอนนี้เอียงไปทางไหนเมื่อดูรวมกัน
+                  คำนวณจากค่าเฉลี่ยถ่วงน้ำหนักเท่ากันของ percentile ทั้ง {compositeReadings.length} ตัวด้านล่าง (ระดับปัจจุบันเทียบสถิติย้อนหลัง)
+                  ไม่ใช่แบบจำลองที่ผ่านการพิสูจน์ทางสถิติ และไม่ใช่การพยากรณ์ทิศทางราคา
+                </p>
+              </div>
+            )}
+
+            {sixSignal && (
+              <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="text-sm font-bold">ระบบนับเสียง 6 สัญญาณ (ทดลอง — ยังไม่ผ่าน backtest)</h2>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${biasBadge[sixSignal.bias]}`}>
+                    {biasLabel[sixSignal.bias]}
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-300/80 mb-3">
+                  ⚠️ กฎการนับเสียงนี้ยังไม่เคย backtest กับข้อมูลย้อนหลังจริง — บันทึกไว้ทุกวันเพื่อรอตรวจสอบว่ามี edge จริงหรือไม่
+                  ห้ามใช้ต่อยอดระบบเทรดเงินจริงก่อนผ่านการพิสูจน์
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-2">
+                  {sixSignal.breakdown.map(b => (
+                    <div key={b.signal} className="bg-slate-800/60 rounded-md px-2.5 py-1.5 text-xs flex items-center justify-between">
+                      <span className="text-slate-300">{b.signal}</span>
+                      <span className={`font-bold ${verdictColor[b.verdict]}`}>
+                        {b.verdict === 'bullish' ? '▲' : b.verdict === 'bearish' ? '▼' : '–'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {sixSignal.bullishCount} bullish / {sixSignal.bearishCount} bearish / {sixSignal.neutralCount} เป็นกลาง จาก 6 สัญญาณ ·
+                  ทิศทาง = เทียบค่าล่าสุดกับ ~1 เดือนก่อน · CFTC "แน่น" = percentile ≥ {CFTC_CROWDED_PERCENTILE}
                 </p>
               </div>
             )}
@@ -166,7 +254,7 @@ export const App: React.FC = () => {
       </main>
 
       <footer className="border-t border-slate-800 px-4 py-4 text-center text-xs text-slate-600">
-        ข้อมูลทั้งหมดดึงจากแหล่งทางการจริง (Federal Reserve, CFTC, งานวิจัยของนักเศรษฐศาสตร์ Fed) ไม่มีการคาดเดาหรือสร้างข้อมูลขึ้นเอง
+        ข้อมูลทั้งหมดดึงจากแหล่งทางการจริง (Federal Reserve, CFTC, LBMA, งานวิจัยของนักเศรษฐศาสตร์ Fed) ไม่มีการคาดเดาหรือสร้างข้อมูลขึ้นเอง
       </footer>
     </div>
   );

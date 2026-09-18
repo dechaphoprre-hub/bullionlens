@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { fetchFredSeries } from './lib/fredClient.js';
 import { fetchGoldPositioning } from './lib/cftcClient.js';
 import { fetchGeopoliticalRiskIndex } from './lib/gprClient.js';
+import { fetchGoldPriceUsd } from './lib/lbmaClient.js';
 
 export interface IndicatorSnapshot {
   id: string;
@@ -61,6 +62,20 @@ export async function getIndicators(): Promise<IndicatorsResult> {
       run: async () => {
         const r = await fetchGeopoliticalRiskIndex();
         return { id: 'geopolitical-risk-index', latestValue: r.latestValue, latestDate: r.latestDate, historicalValues: r.historicalValues };
+      }
+    },
+    {
+      id: 'nominal-yield-10y',
+      run: async () => {
+        const r = await fetchFredSeries('DGS10');
+        return { id: 'nominal-yield-10y', latestValue: r.latestValue, latestDate: r.latestDate, historicalValues: r.historicalValues };
+      }
+    },
+    {
+      id: 'gold-price-usd',
+      run: async () => {
+        const r = await fetchGoldPriceUsd();
+        return { id: 'gold-price-usd', latestValue: r.latestValue, latestDate: r.latestDate, historicalValues: r.historicalSeries.map(p => p.value) };
       }
     }
   ];
