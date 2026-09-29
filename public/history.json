@@ -523,5 +523,80 @@
         "percentile": 87
       }
     }
+  },
+  {
+    "date": "2026-09-29",
+    "compositeScore": 42,
+    "sixSignal": {
+      "bias": "neutral",
+      "bullishCount": 2,
+      "bearishCount": 3,
+      "neutralCount": 1,
+      "breakdown": [
+        {
+          "signal": "Real Yield",
+          "verdict": "bearish"
+        },
+        {
+          "signal": "DXY",
+          "verdict": "bearish"
+        },
+        {
+          "signal": "10Y Yield",
+          "verdict": "bearish"
+        },
+        {
+          "signal": "Breakeven",
+          "verdict": "bullish"
+        },
+        {
+          "signal": "CFTC",
+          "verdict": "bullish"
+        },
+        {
+          "signal": "Gold price",
+          "verdict": "neutral"
+        }
+      ]
+    },
+    "goldPriceUsd": 4144.55,
+    "goldPriceDate": "2026-09-28",
+    "indicators": {
+      "real-yield-10y": {
+        "value": 2.83,
+        "date": "2026-09-25",
+        "percentile": 100
+      },
+      "dollar-index-broad": {
+        "value": 120.33,
+        "date": "2026-09-25",
+        "percentile": 43
+      },
+      "breakeven-inflation-10y": {
+        "value": 2.34,
+        "date": "2026-09-28",
+        "percentile": 52
+      },
+      "gold-speculative-positioning": {
+        "value": 225853,
+        "date": "2026-09-22T00:00:00.000",
+        "percentile": 70
+      },
+      "geopolitical-risk-index": {
+        "value": 117.9188461303711,
+        "date": "2026-08-01",
+        "percentile": 31
+      },
+      "nominal-yield-10y": {
+        "value": 5.17,
+        "date": "2026-09-25",
+        "percentile": 100
+      },
+      "gold-price-usd": {
+        "value": 4144.55,
+        "date": "2026-09-28",
+        "percentile": 85
+      }
+    }
   }
 ]
