@@ -1597,5 +1597,49 @@
         "percentile": null
       }
     }
+  },
+  {
+    "date": "2026-10-30",
+    "compositeScore": 44,
+    "sixSignal": null,
+    "goldPriceUsd": null,
+    "goldPriceDate": null,
+    "indicators": {
+      "real-yield-10y": {
+        "value": 2.67,
+        "date": "2026-10-28",
+        "percentile": 98
+      },
+      "dollar-index-broad": {
+        "value": 121.3202,
+        "date": "2026-10-23",
+        "percentile": 61
+      },
+      "breakeven-inflation-10y": {
+        "value": 2.35,
+        "date": "2026-10-29",
+        "percentile": 58
+      },
+      "gold-speculative-positioning": {
+        "value": 199865,
+        "date": "2026-10-20T00:00:00.000",
+        "percentile": 52
+      },
+      "geopolitical-risk-index": {
+        "value": 146.20989990234375,
+        "date": "2026-09-01",
+        "percentile": 68
+      },
+      "nominal-yield-10y": {
+        "value": 5.05,
+        "date": "2026-10-28",
+        "percentile": 98
+      },
+      "gold-price-usd": {
+        "value": null,
+        "date": null,
+        "percentile": null
+      }
+    }
   }
 ]
